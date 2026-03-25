@@ -42,7 +42,7 @@ export default function AdminInvoices() {
     doc.text('INVOICE', 105, 20, { align: 'center' });
     
     doc.setFontSize(10);
-    doc.setTextColor(100);
+    doc.setTextColor(100, 116, 139); // Slate 500
     doc.text(`Invoice #: ${invoice.id.substring(0, 8).toUpperCase()}`, 20, 35);
     doc.text(`Date: ${new Date(invoice.date).toLocaleDateString()}`, 20, 42);
     doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`, 20, 49);
@@ -53,7 +53,7 @@ export default function AdminInvoices() {
     doc.setTextColor(0);
     doc.text('Bill To:', 140, 35);
     doc.setFontSize(10);
-    doc.setTextColor(100);
+    doc.setTextColor(100, 116, 139); // Slate 500
     doc.text(`Patient: ${patient?.name || 'Unknown'}`, 140, 42);
     doc.text(`Email: ${patient?.email || 'N/A'}`, 140, 49);
     
@@ -83,13 +83,13 @@ export default function AdminInvoices() {
     
     if (invoice.paymentMethod) {
       doc.setFontSize(10);
-      doc.setTextColor(100);
+      doc.setTextColor(100, 116, 139); // Slate 500
       doc.text(`Payment Method: ${invoice.paymentMethod.toUpperCase()}`, 20, finalY + 15);
     }
     
     // Footer
     doc.setFontSize(10);
-    doc.setTextColor(150);
+    doc.setTextColor(148, 163, 184); // Slate 400
     doc.text('Thank you for choosing our healthcare services.', 105, 280, { align: 'center' });
     
     doc.save(`Invoice_${invoice.id.substring(0, 8)}.pdf`);

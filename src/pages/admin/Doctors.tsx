@@ -1,98 +1,140 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import { Plus, Search, Edit, Trash2, Mail, Phone, Building, Star, MoreVertical, Loader2, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Mail, Phone, Building, Star, MoreVertical, Loader2, X, Users, Pill, TestTube } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { User } from '../../context/AppContext';
+import { User, Role } from '../../context/AppContext';
 
-export default function AdminDoctors() {
-  const { users, departments, addDoctor, updateAdminUser, deleteUser } = useAppContext();
+type StaffRole = 'doctor' | 'receptionist' | 'pharmacist' | 'lab_technician';
+
+export default function AdminStaff() {
+  const { users, departments, addDoctor, addReceptionist, addPharmacist, addLabTechnician, updateAdminUser, deleteUser } = useAppContext();
+  const [activeTab, setActiveTab] = useState<StaffRole>('doctor');
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [editingDoctor, setEditingDoctor] = useState<User | null>(null);
+  const [editingStaff, setEditingStaff] = useState<User | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const [specialty, setSpecialty] = useState('');
 
-  const doctors = users.filter(u => u.role === 'doctor');
+  const getRoleUsers = (role: StaffRole) => {
+    const roleMap: Record<StaffRole, Role> = {
+      doctor: 'doctor',
+      receptionist: 'receptionist',
+      pharmacist: 'pharmacist',
+      lab_technician: 'lab_technician'
+    };
+    return users.filter(u => u.role === roleMap[role]);
+  };
+
+  const currentStaff = getRoleUsers(activeTab);
   
-  const filteredDoctors = doctors.filter(doc => 
-    (doc.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (doc.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (doc.specialty && doc.specialty.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredStaff = currentStaff.filter(staff => 
+    (staff.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (staff.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (staff.specialty && staff.specialty.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const handleAddDoctor = async (e: React.FormEvent) => {
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !password || !departmentId || !specialty) {
+    if (!name || !email || !password) {
       toast.error('Please fill in all required fields.');
+      return;
+    }
+    
+    if (activeTab === 'doctor' && (!departmentId || !specialty)) {
+      toast.error('Please fill in department and specialty for doctors.');
       return;
     }
     
     setIsSubmitting(true);
     try {
-      await addDoctor({ name, email, password, departmentId, specialty });
-      toast.success('Doctor added successfully!');
+      const staffData = { name, email, password, phone, departmentId, specialty };
+      
+      switch (activeTab) {
+        case 'doctor':
+          await addDoctor(staffData);
+          break;
+        case 'receptionist':
+          await addReceptionist(staffData);
+          break;
+        case 'pharmacist':
+          await addPharmacist(staffData);
+          break;
+        case 'lab_technician':
+          await addLabTechnician(staffData);
+          break;
+      }
+      
+      toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')} added successfully!`);
       setShowAddModal(false);
       resetForm();
     } catch (error) {
-      toast.error('Failed to add doctor. Please try again.');
+      toast.error(`Failed to add ${activeTab}. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleEditClick = (doctor: User) => {
-    setEditingDoctor(doctor);
-    setName(doctor.name);
-    setEmail(doctor.email);
-    setDepartmentId(doctor.departmentId || '');
-    setSpecialty(doctor.specialty || '');
-    setPassword(''); // Don't populate password
+  const handleEditClick = (staff: User) => {
+    setEditingStaff(staff);
+    setName(staff.name);
+    setEmail(staff.email);
+    setPhone(staff.phone || '');
+    setDepartmentId(staff.departmentId || '');
+    setSpecialty(staff.specialty || '');
+    setPassword('');
     setShowEditModal(true);
   };
 
-  const handleUpdateDoctor = async (e: React.FormEvent) => {
+  const handleUpdateStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingDoctor) return;
+    if (!editingStaff) return;
     
-    if (!name || !email || !departmentId || !specialty) {
+    if (!name || !email) {
       toast.error('Please fill in all required fields.');
+      return;
+    }
+    
+    if (activeTab === 'doctor' && (!departmentId || !specialty)) {
+      toast.error('Please fill in department and specialty for doctors.');
       return;
     }
     
     setIsSubmitting(true);
     try {
-      await updateAdminUser(editingDoctor.id, {
-        name,
-        email,
-        departmentId,
-        specialty
-      });
-      toast.success('Doctor updated successfully!');
+      const updateData: any = { name, email, phone };
+      if (activeTab === 'doctor') {
+        updateData.departmentId = departmentId;
+        updateData.specialty = specialty;
+      }
+      
+      await updateAdminUser(editingStaff.id, updateData);
+      toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')} updated successfully!`);
       setShowEditModal(false);
       resetForm();
     } catch (error) {
-      console.error('Update doctor error:', error);
-      toast.error('Failed to update doctor.');
+      console.error('Update staff error:', error);
+      toast.error(`Failed to update ${activeTab}.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteDoctor = async () => {
+  const handleDeleteStaff = async () => {
     if (!deletingId) return;
     try {
       await deleteUser(deletingId);
-      toast.success('Doctor deleted successfully!');
+      toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')} deleted successfully!`);
     } catch (error) {
-      console.error('Delete doctor error:', error);
-      toast.error('Failed to delete doctor.');
+      console.error('Delete staff error:', error);
+      toast.error(`Failed to delete ${activeTab}.`);
     } finally {
       setDeletingId(null);
     }
@@ -102,25 +144,62 @@ export default function AdminDoctors() {
     setName('');
     setEmail('');
     setPassword('');
+    setPhone('');
     setDepartmentId('');
     setSpecialty('');
-    setEditingDoctor(null);
+    setEditingStaff(null);
   };
+
+  const tabs = [
+    { id: 'doctor' as StaffRole, name: 'Doctors', icon: Star, count: getRoleUsers('doctor').length },
+    { id: 'receptionist' as StaffRole, name: 'Receptionists', icon: Users, count: getRoleUsers('receptionist').length },
+    { id: 'pharmacist' as StaffRole, name: 'Pharmacists', icon: Pill, count: getRoleUsers('pharmacist').length },
+    { id: 'lab_technician' as StaffRole, name: 'Lab Technicians', icon: TestTube, count: getRoleUsers('lab_technician').length },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Manage Doctors</h1>
-          <p className="text-slate-500 text-sm mt-1">View and manage hospital medical staff.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Staff Management</h1>
+          <p className="text-slate-500 text-sm mt-1">Manage all hospital staff members and their accounts.</p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
           className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
         >
           <Plus className="h-4 w-4 mr-2" />
-          Add Doctor
+          Add {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}
         </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium rounded-lg transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-indigo-50 text-indigo-700 border-2 border-indigo-200'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{tab.name}</span>
+                <span className="sm:hidden">{tab.name.split(' ')[0]}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs ${
+                  activeTab === tab.id ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
@@ -131,47 +210,52 @@ export default function AdminDoctors() {
             </div>
             <input
               type="text"
-              placeholder="Search doctors by name, email, or specialty..."
+              placeholder={`Search ${activeTab === 'lab_technician' ? 'lab technicians' : activeTab + 's'} by name or email...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm transition-colors"
             />
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <select className="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border-slate-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
-              <option value="">All Departments</option>
-              {departments.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
+          {activeTab === 'doctor' && (
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <select className="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border-slate-200 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-lg">
+                <option value="">All Departments</option>
+                {departments.map(d => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-slate-100">
             <thead className="bg-slate-50/50">
               <tr>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Doctor</th>
+                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Staff Member</th>
                 <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Contact Info</th>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Department & Specialty</th>
+                {activeTab === 'doctor' && (
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Department & Specialty</th>
+                )}
                 <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                 <th scope="col" className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-slate-100">
-              {filteredDoctors.map((doc) => {
-                const dept = departments.find(d => d.id === doc.departmentId);
+              {filteredStaff.map((staff) => {
+                const dept = departments.find(d => d.id === staff.departmentId);
                 return (
-                  <tr key={doc.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <tr key={staff.id} className="hover:bg-slate-50/80 transition-colors group">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <img className="h-10 w-10 rounded-full object-cover border border-slate-200" src={doc.avatar || `https://ui-avatars.com/api/?name=${doc.name || 'Doctor'}&background=random`} alt="" />
+                          <img className="h-10 w-10 rounded-full object-cover border border-slate-200" src={staff.avatar || `https://ui-avatars.com/api/?name=${staff.name || 'Staff'}&background=random`} alt="" />
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-bold text-slate-900">{doc.name || 'Unknown Doctor'}</div>
+                          <div className="text-sm font-bold text-slate-900">{staff.name || 'Unknown Staff'}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Star className="h-3 w-3 text-amber-400 fill-amber-400" /> 4.8 (124 reviews)
+                            {activeTab === 'doctor' && <Star className="h-3 w-3 text-amber-400 fill-amber-400" />}
+                            {activeTab === 'doctor' ? '4.8 (124 reviews)' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('_', ' ')}
                           </div>
                         </div>
                       </div>
@@ -179,23 +263,25 @@ export default function AdminDoctors() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col gap-1">
                         <div className="text-sm text-slate-600 flex items-center gap-1.5">
-                          <Mail className="h-3.5 w-3.5 text-slate-400" /> {doc.email}
+                          <Mail className="h-3.5 w-3.5 text-slate-400" /> {staff.email}
                         </div>
                         <div className="text-sm text-slate-600 flex items-center gap-1.5">
-                          <Phone className="h-3.5 w-3.5 text-slate-400" /> +1 (555) 123-4567
+                          <Phone className="h-3.5 w-3.5 text-slate-400" /> {staff.phone || '+1 (555) 123-4567'}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col gap-1">
-                        <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
-                          <Building className="h-3.5 w-3.5 text-indigo-500" /> {dept?.name || 'Unassigned'}
+                    {activeTab === 'doctor' && (
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm font-medium text-slate-900 flex items-center gap-1.5">
+                            <Building className="h-3.5 w-3.5 text-indigo-500" /> {dept?.name || 'Unassigned'}
+                          </div>
+                          <div className="text-sm text-slate-500">
+                            {staff.specialty || 'General Practice'}
+                          </div>
                         </div>
-                        <div className="text-sm text-slate-500">
-                          {doc.specialty || 'General Practice'}
-                        </div>
-                      </div>
-                    </td>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></span>
@@ -205,14 +291,14 @@ export default function AdminDoctors() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
-                          onClick={() => handleEditClick(doc)}
+                          onClick={() => handleEditClick(staff)}
                           className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors" 
                           title="Edit"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button 
-                          onClick={() => setDeletingId(doc.id)}
+                          onClick={() => setDeletingId(staff.id)}
                           className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" 
                           title="Delete"
                         >
@@ -226,13 +312,13 @@ export default function AdminDoctors() {
                   </tr>
                 );
               })}
-              {filteredDoctors.length === 0 && (
+              {filteredStaff.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={activeTab === 'doctor' ? 5 : 4} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center justify-center text-slate-500">
                       <Search className="h-8 w-8 text-slate-300 mb-3" />
-                      <p className="text-base font-medium text-slate-900">No doctors found</p>
-                      <p className="text-sm">We couldn't find any doctors matching your search criteria.</p>
+                      <p className="text-base font-medium text-slate-900">No {activeTab === 'lab_technician' ? 'lab technicians' : activeTab + 's'} found</p>
+                      <p className="text-sm">We couldn't find any {activeTab === 'lab_technician' ? 'lab technicians' : activeTab + 's'} matching your search criteria.</p>
                     </div>
                   </td>
                 </tr>
@@ -242,7 +328,7 @@ export default function AdminDoctors() {
         </div>
         <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
           <p className="text-sm text-slate-500">
-            Showing <span className="font-medium text-slate-900">{filteredDoctors.length}</span> doctors
+            Showing <span className="font-medium text-slate-900">{filteredStaff.length}</span> {activeTab === 'lab_technician' ? 'lab technicians' : activeTab + 's'}
           </p>
           <div className="flex items-center gap-2">
             <button className="px-3 py-1.5 border border-slate-200 rounded-md text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
@@ -255,176 +341,251 @@ export default function AdminDoctors() {
         </div>
       </div>
 
-      {deletingId && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4 mx-auto">
-                <Trash2 className="h-6 w-6 text-red-600" />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Delete Doctor?</h3>
-              <p className="text-sm text-slate-500 text-center">Are you sure you want to delete this doctor? This action cannot be undone.</p>
-              <div className="flex gap-3 mt-6">
+      {/* Add Staff Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Add {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}
+                </h3>
                 <button
-                  onClick={() => setDeletingId(null)}
-                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                  onClick={() => setShowAddModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteDoctor}
-                  className="flex-1 px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors"
-                >
-                  Delete
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {(showAddModal || showEditModal) && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+            <form onSubmit={handleAddStaff} className="p-6 space-y-4">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">{showEditModal ? 'Edit Doctor' : 'Add New Doctor'}</h3>
-                <p className="text-sm text-slate-500 mt-1">{showEditModal ? 'Update the details for this doctor.' : 'Enter the details for the new medical staff member.'}</p>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowAddModal(false);
-                  setShowEditModal(false);
-                  resetForm();
-                }}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={showEditModal ? handleUpdateDoctor : handleAddDoctor} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
                 <input
                   type="text"
-                  required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm transition-colors"
-                  placeholder="Dr. John Doe"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter full name"
+                  required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
                 <input
                   type="email"
-                  required
-                  disabled={showEditModal}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`block w-full px-3 py-2 border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm transition-colors ${showEditModal ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`}
-                  placeholder="doctor@hospital.com"
-                />
-                {showEditModal && (
-                  <p className="mt-1 text-xs text-slate-500">Email cannot be changed after creation.</p>
-                )}
-              </div>
-              {!showEditModal && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm transition-colors"
-                    placeholder="Create a secure password"
-                  />
-                </div>
-              )}
-              {showEditModal && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-                  <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-sm text-slate-600">Password cannot be edited directly for security reasons.</span>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const { sendPasswordResetEmail } = await import('firebase/auth');
-                          const { auth } = await import('../../firebase');
-                          await sendPasswordResetEmail(auth, email);
-                          toast.success('Password reset email sent to ' + email);
-                        } catch (error) {
-                          toast.error('Failed to send password reset email.');
-                        }
-                      }}
-                      className="px-3 py-1.5 bg-white border border-slate-200 rounded-md text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
-                    >
-                      Send Reset Email
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Department</label>
-                {departments.length === 0 ? (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
-                    You need to create a department first before adding a doctor. Please go to the Departments tab.
-                  </div>
-                ) : (
-                  <select
-                    required
-                    value={departmentId}
-                    onChange={(e) => setDepartmentId(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm transition-colors"
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map(d => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Specialty</label>
-                <input
-                  type="text"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter email address"
                   required
-                  value={specialty}
-                  onChange={(e) => setSpecialty(e.target.value)}
-                  className="block w-full px-3 py-2 border border-slate-200 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 sm:text-sm transition-colors"
-                  placeholder="e.g. Cardiologist"
                 />
               </div>
-              <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-slate-100">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter phone number"
+                />
+              </div>
+              {activeTab === 'doctor' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                    <select
+                      value={departmentId}
+                      onChange={(e) => setDepartmentId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      required
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Specialty</label>
+                    <input
+                      type="text"
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      placeholder="Enter specialty"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setShowEditModal(false);
-                    resetForm();
-                  }}
-                  className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={departments.length === 0 || isSubmitting}
-                  className="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                      Saving...
-                    </>
-                  ) : (
-                    showEditModal ? 'Update Doctor' : 'Save Doctor'
-                  )}
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Add {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Modal */}
+      {showEditModal && editingStaff && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Edit {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}
+                </h3>
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+            <form onSubmit={handleUpdateStaff} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter full name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter email address"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="Enter phone number"
+                />
+              </div>
+              {activeTab === 'doctor' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
+                    <select
+                      value={departmentId}
+                      onChange={(e) => setDepartmentId(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      required
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Specialty</label>
+                    <input
+                      type="text"
+                      value={specialty}
+                      onChange={(e) => setSpecialty(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      placeholder="Enter specialty"
+                      required
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Update {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-red-100 rounded-full">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Delete {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}</h3>
+                  <p className="text-sm text-slate-500">This action cannot be undone.</p>
+                </div>
+              </div>
+              <p className="text-slate-600 mb-6">
+                Are you sure you want to delete this {activeTab}? This will permanently remove their account and all associated data.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeletingId(null)}
+                  className="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteStaff}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete {tabs.find(t => t.id === activeTab)?.name.slice(0, -1)}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

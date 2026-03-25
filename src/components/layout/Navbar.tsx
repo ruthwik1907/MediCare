@@ -42,7 +42,14 @@ export const Navbar = () => {
               </>
             ) : (
               <div className="flex items-center space-x-4">
-                <Link to={`/${currentUser.role}`} className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-indigo-600">
+                <Link
+                  to={
+                    currentUser.role === 'lab_technician' || currentUser.role === 'labtechnician'
+                      ? '/labtechnician'
+                      : `/${currentUser.role}`
+                  }
+                  className="flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-indigo-600"
+                >
                   <UserIcon className="h-5 w-5" />
                   Dashboard
                 </Link>

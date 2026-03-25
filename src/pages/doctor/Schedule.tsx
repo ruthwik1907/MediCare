@@ -30,7 +30,7 @@ export default function DoctorSchedule() {
           if (existingDay) {
             return {
               day: defaultDay.day,
-              isWorking: existingDay.isWorking,
+              isWorking: existingDay.isWorking ?? false,
               start: existingDay.startTime,
               end: existingDay.endTime,
               breakStart: existingDay.breakStart || '',
@@ -66,6 +66,7 @@ export default function DoctorSchedule() {
         dayOfWeek: day.day,
         startTime: day.start,
         endTime: day.end,
+        slotDurationMinutes: 30, // Default slot duration
         isWorking: day.isWorking,
         breakStart: day.breakStart || undefined,
         breakEnd: day.breakEnd || undefined,

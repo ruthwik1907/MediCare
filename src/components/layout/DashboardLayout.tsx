@@ -1,10 +1,11 @@
-import React from 'react';
+  import React from 'react';
 import { Link, useLocation, Outlet, Navigate } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
 import { Navbar } from './Navbar';
 import { 
   LayoutDashboard, Calendar, FileText, CreditCard, MessageSquare, Settings, 
-  Users, UserPlus, Activity, PieChart, Building, Loader2
+  Users, UserPlus, Activity, PieChart, Building, Loader2, Bed, Wrench,
+  Pill
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -52,14 +53,31 @@ export const DashboardLayout = ({ allowedRoles }: { allowedRoles: string[] }) =>
     { name: 'Patients', href: '/admin/patients', icon: Users },
     { name: 'Appointments', href: '/admin/appointments', icon: Calendar },
     { name: 'Departments', href: '/admin/departments', icon: Building },
+    { name: 'Beds', href: '/admin/beds', icon: Bed },
+    { name: 'Equipment', href: '/admin/equipment', icon: Wrench },
     { name: 'Invoices', href: '/admin/invoices', icon: CreditCard },
     { name: 'Reports', href: '/admin/reports', icon: PieChart },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];
 
+  const pharmacistLinks = [
+    { name: 'Dashboard', href: '/pharmacist', icon: LayoutDashboard },
+  ];
+
+  const receptionistLinks = [
+    { name: 'Dashboard', href: '/receptionist', icon: LayoutDashboard },
+  ];
+
+  const labTechnicianLinks = [
+    { name: 'Dashboard', href: '/labtechnician', icon: LayoutDashboard },
+  ];
+
   let links = patientLinks;
   if (currentUser.role === 'doctor') links = doctorLinks;
   if (currentUser.role === 'admin') links = adminLinks;
+  if (currentUser.role === 'pharmacist') links = pharmacistLinks;
+  if (currentUser.role === 'receptionist') links = receptionistLinks;
+  if (currentUser.role === 'lab_technician' || currentUser.role === 'labtechnician') links = labTechnicianLinks;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">

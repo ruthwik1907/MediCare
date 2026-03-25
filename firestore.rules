@@ -118,5 +118,29 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
       allow delete: if isAdmin();
     }
+
+    match /beds/{bedId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /equipment/{equipmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /bedBookings/{bookingId} {
+      allow read: if isAuthenticated() && (isStaff() || resource.data.patientId == request.auth.uid);
+      allow create: if hasRole('doctor') || isAdmin();
+      allow update: if hasRole('doctor') || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /equipmentBookings/{bookingId} {
+      allow read: if isAuthenticated() && (isStaff() || resource.data.patientId == request.auth.uid);
+      allow create: if hasRole('doctor') || isAdmin();
+      allow update: if hasRole('doctor') || isAdmin();
+      allow delete: if isAdmin();
+    }
   }
 }

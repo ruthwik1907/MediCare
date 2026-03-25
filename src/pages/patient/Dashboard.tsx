@@ -1,10 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAppContext } from '../../context/AppContext';
-import { Calendar, FileText, CreditCard, Activity, ArrowRight, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, FileText, CreditCard, Activity, ArrowRight, Clock, CheckCircle, AlertCircle, Bed, Wrench, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import toast from 'react-hot-toast';
 
 export default function PatientDashboard() {
-  const { currentUser, appointments, prescriptions, invoices, labReports, users } = useAppContext();
+  const { currentUser, appointments, prescriptions, invoices, labReports, users, beds, equipment, bedBookings, equipmentBookings } = useAppContext();
 
   if (!currentUser) return null;
 
@@ -16,6 +18,55 @@ export default function PatientDashboard() {
   const unpaidInvoices = myInvoices.filter(i => i.status === 'unpaid');
   const myLabReports = labReports.filter(l => l.patientId === currentUser.id);
   const pendingLabReports = myLabReports.filter(l => l.status === 'pending');
+
+  const downloadPrescriptionPDF = (rx: any) => {
+    try {
+      const doctor = users.find(u => u.id === rx.doctorId);
+      const doc = new jsPDF();
+      
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(30, 58, 138); // Indigo-900
+      doc.text('PRESCRIPTION', 14, 22);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139); // Slate-500
+      doc.text(`Date: ${new Date(rx.date).toLocaleDateString()}`, 14, 30);
+      doc.text(`Doctor: Dr. ${doctor?.name || 'Unknown'}`, 14, 35);
+      
+      // Patient Info
+      doc.setFontSize(12);
+      doc.setTextColor(15, 23, 42); // Slate-900
+      doc.text('Patient Information:', 14, 50);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Name: ${currentUser.name}`, 14, 55);
+      doc.text(`Email: ${currentUser.email}`, 14, 60);
+      
+      // Medications
+      doc.setFontSize(14);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Medications:', 14, 75);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(51, 65, 85); // Slate-700
+      
+      const splitText = doc.splitTextToSize(rx.medications || 'No medications specified', 180);
+      doc.text(splitText, 14, 85);
+      
+      // Footer
+      const finalY = 85 + (splitText.length * 5);
+      doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
+      doc.text('This is a digitally generated prescription from MediCare.', 14, finalY + 20);
+      
+      doc.save(`Prescription_${new Date(rx.date).getTime()}.pdf`);
+      toast.success('Prescription downloaded successfully');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -151,7 +202,16 @@ export default function PatientDashboard() {
                           <p className="font-semibold text-slate-900">Prescribed by Dr. {doctor?.name || 'Unknown Doctor'}</p>
                           <p className="text-xs text-slate-500 mt-0.5">{new Date(rx.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
                         </div>
-                        <span className="bg-slate-100 text-slate-600 text-xs px-2.5 py-1 rounded-md font-medium border border-slate-200">Rx</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => downloadPrescriptionPDF(rx)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Download Prescription"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          <span className="bg-slate-100 text-slate-600 text-xs px-2.5 py-1 rounded-md font-medium border border-slate-200">Rx</span>
+                        </div>
                       </div>
                       <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
                         <p className="text-sm text-slate-700 line-clamp-2 font-medium">{rx.medications}</p>
@@ -212,6 +272,153 @@ export default function PatientDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Hospital Resources */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Available Beds */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Bed className="h-5 w-5 text-blue-500" />
+              Available Beds
+            </h2>
+            <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">
+              {beds.filter(b => b.status === 'available').length} Available
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+            {beds.filter(b => b.status === 'available').length > 0 ? (
+              beds.filter(b => b.status === 'available').slice(0, 5).map(bed => {
+                const department = departments.find(d => d.id === bed.departmentId);
+                return (
+                  <div key={bed.id} className="p-6 hover:bg-slate-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-semibold text-slate-900">Bed {bed.bedNumber}</h3>
+                        <p className="text-sm text-slate-600">Room {bed.roomNumber} • {bed.type}</p>
+                      </div>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Available
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500">{department?.name || 'General Ward'}</p>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-slate-500">
+                <Bed className="h-8 w-8 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm">No beds available at the moment.</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Available Equipment */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-purple-500" />
+              Available Equipment
+            </h2>
+            <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full">
+              {equipment.filter(e => e.status === 'available').length} Available
+            </span>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-80 overflow-y-auto">
+            {equipment.filter(e => e.status === 'available').length > 0 ? (
+              equipment.filter(e => e.status === 'available').slice(0, 5).map(equip => {
+                const department = departments.find(d => d.id === equip.departmentId);
+                return (
+                  <div key={equip.id} className="p-6 hover:bg-slate-50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{equip.name}</h3>
+                        <p className="text-sm text-slate-600">{equip.type} • {equip.location}</p>
+                      </div>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Available
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-500">{department?.name || 'General Equipment'}</p>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-slate-500">
+                <Wrench className="h-8 w-8 mx-auto mb-3 text-slate-300" />
+                <p className="text-sm">No equipment available at the moment.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* My Bookings */}
+      {(bedBookings.filter(b => b.patientId === currentUser.id).length > 0 || equipmentBookings.filter(b => b.patientId === currentUser.id).length > 0) && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-6 border-b border-slate-200 bg-slate-50/50">
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Activity className="h-5 w-5 text-indigo-500" />
+              My Resource Bookings
+            </h2>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {bedBookings.filter(b => b.patientId === currentUser.id).map(booking => {
+              const bed = beds.find(b => b.id === booking.bedId);
+              return (
+                <div key={booking.id} className="p-6 hover:bg-slate-50 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-3">
+                      <Bed className="h-5 w-5 text-blue-500" />
+                      <div>
+                        <h3 className="font-semibold text-slate-900">Bed {bed?.bedNumber} Booking</h3>
+                        <p className="text-sm text-slate-600">Room {bed?.roomNumber} • {bed?.type}</p>
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      booking.status === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {booking.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-slate-500">
+                    <span>From: {new Date(booking.startDate).toLocaleDateString()}</span>
+                    <span>To: {new Date(booking.endDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {equipmentBookings.filter(b => b.patientId === currentUser.id).map(booking => {
+              const equip = equipment.find(e => e.id === booking.equipmentId);
+              return (
+                <div key={booking.id} className="p-6 hover:bg-slate-50 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-3">
+                      <Wrench className="h-5 w-5 text-purple-500" />
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{equip?.name} Booking</h3>
+                        <p className="text-sm text-slate-600">{equip?.type} • {equip?.location}</p>
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      booking.status === 'active' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {booking.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-slate-500">
+                    <span>From: {new Date(booking.startDate).toLocaleDateString()}</span>
+                    <span>To: {new Date(booking.endDate).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -55,27 +55,46 @@ export default function PatientRecords() {
       doc.text(`Name: ${currentUser.name}`, 14, 55);
       doc.text(`Email: ${currentUser.email}`, 14, 60);
       
-      // Medications Table
-      const tableColumn = ["Medication", "Dosage", "Route", "Frequency", "Duration"];
-      const tableRows = rx.items?.map((item: any) => [
-        item.medicationName,
-        item.dosage,
-        item.route,
-        item.frequency,
-        `${item.durationDays} days`
-      ]) || [];
-      
-      (doc as any).autoTable({
-        startY: 70,
-        head: [tableColumn],
-        body: tableRows,
-        theme: 'striped',
-        headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
-        styles: { fontSize: 10, cellPadding: 5 },
-      });
+      // Medications Table or Text
+      if (rx.items && rx.items.length > 0) {
+        const tableColumn = ["Medication", "Dosage", "Route", "Frequency", "Duration"];
+        const tableRows = rx.items.map((item: any) => [
+          item.medicationName,
+          item.dosage,
+          item.route,
+          item.frequency,
+          `${item.durationDays} days`
+        ]);
+        
+        (doc as any).autoTable({
+          startY: 70,
+          head: [tableColumn],
+          body: tableRows,
+          theme: 'striped',
+          headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
+          styles: { fontSize: 10, cellPadding: 5 },
+        });
+      } else {
+        // Display medications as text
+        doc.setFontSize(14);
+        doc.setTextColor(15, 23, 42);
+        doc.text('Medications:', 14, 70);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(51, 65, 85);
+        const splitMeds = doc.splitTextToSize(rx.medications || 'No medications specified', 180);
+        doc.text(splitMeds, 14, 80);
+      }
       
       // Footer
-      const finalY = (doc as any).lastAutoTable.finalY || 70;
+      let finalY: number;
+      if (rx.items && rx.items.length > 0) {
+        finalY = (doc as any).lastAutoTable.finalY || 70;
+      } else {
+        const splitMeds = doc.splitTextToSize(rx.medications || 'No medications specified', 180);
+        finalY = 80 + (splitMeds.length * 5);
+      }
+      
       doc.setFontSize(10);
       doc.setTextColor(100, 116, 139);
       doc.text('This is a digitally generated prescription.', 14, finalY + 20);
@@ -244,14 +263,18 @@ export default function PatientRecords() {
                           <h4 className="font-semibold text-slate-900">Medications</h4>
                         </div>
                         <div className="prose prose-sm prose-slate max-w-none">
-                          <ul className="space-y-2">
-                            {rx.items?.map((item, idx) => (
-                              <li key={idx} className="text-slate-700">
-                                <strong>{item.medicationName}</strong> - {item.dosage} ({item.route})<br/>
-                                <span className="text-xs text-slate-500">{item.frequency} for {item.durationDays} days. {item.specialInstructions}</span>
-                              </li>
-                            ))}
-                          </ul>
+                          {rx.items && rx.items.length > 0 ? (
+                            <ul className="space-y-2">
+                              {rx.items.map((item, idx) => (
+                                <li key={idx} className="text-slate-700">
+                                  <strong>{item.medicationName}</strong> - {item.dosage} ({item.route})<br/>
+                                  <span className="text-xs text-slate-500">{item.frequency} for {item.durationDays} days. {item.specialInstructions}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-slate-700 whitespace-pre-wrap">{rx.medications || 'No medications specified'}</p>
+                          )}
                         </div>
                       </div>
                       

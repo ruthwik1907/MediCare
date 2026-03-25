@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppContext, Role } from '../../context/AppContext';
-import { Activity, Mail, Lock, ArrowRight, ShieldCheck, UserCircle, Stethoscope, Loader2 } from 'lucide-react';
+import { Activity, Mail, Lock, ArrowRight, ShieldCheck, UserCircle, Stethoscope, Loader2, Pill, Users, TestTube } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function Login() {
@@ -27,10 +27,22 @@ export default function Login() {
     try {
       const loggedInUser = await login(email, password, role);
       toast.success('Successfully logged in!');
+      
+      // Map role to route path
+      const roleToRoute = {
+        patient: '/patient',
+        doctor: '/doctor',
+        admin: '/admin',
+        pharmacist: '/pharmacist',
+        receptionist: '/receptionist',
+        lab_technician: '/labtechnician',
+        labtechnician: '/labtechnician'
+      };
+      
       if (redirectTo) {
         navigate(redirectTo);
       } else {
-        navigate(`/${loggedInUser.role}`);
+        navigate(roleToRoute[loggedInUser.role] || '/');
       }
     } catch (err: any) {
       console.error("Login failed:", err);
@@ -46,7 +58,10 @@ export default function Login() {
   const roleIcons = {
     patient: <UserCircle className="w-5 h-5 mb-1" />,
     doctor: <Stethoscope className="w-5 h-5 mb-1" />,
-    admin: <ShieldCheck className="w-5 h-5 mb-1" />
+    admin: <ShieldCheck className="w-5 h-5 mb-1" />,
+    pharmacist: <Pill className="w-5 h-5 mb-1" />,
+    receptionist: <Users className="w-5 h-5 mb-1" />,
+    lab_technician: <TestTube className="w-5 h-5 mb-1" />
   };
 
   return (
@@ -79,7 +94,7 @@ export default function Login() {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-3">I am logging in as a...</label>
               <div className="grid grid-cols-3 gap-3">
-                {(['patient', 'doctor', 'admin'] as Role[]).map((r) => (
+                {(['patient', 'doctor', 'admin', 'pharmacist', 'receptionist', 'lab_technician'] as Role[]).map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -91,7 +106,7 @@ export default function Login() {
                     }`}
                   >
                     {roleIcons[r as keyof typeof roleIcons]}
-                    {r}
+                    {r === 'lab_technician' ? 'Lab Tech' : r}
                   </button>
                 ))}
               </div>

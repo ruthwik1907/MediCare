@@ -2,9 +2,83 @@ import React from 'react';
 import { useAppContext } from '../../context/AppContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import { Download, Filter, Calendar } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 export default function AdminReports() {
   const { appointments, invoices, departments, users } = useAppContext();
+
+  const handleExportReport = () => {
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(79, 70, 229); // Indigo color
+    doc.text('MediCare Analytics Report', 20, 30);
+    
+    // Date
+    doc.setFontSize(12);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 45);
+    
+    // Summary Statistics
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Summary Statistics', 20, 65);
+    
+    const totalAppointments = appointments.length;
+    const totalRevenue = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalDoctors = users.filter(u => u.role === 'doctor').length;
+    const totalPatients = users.filter(u => u.role === 'patient').length;
+    
+    doc.setFontSize(12);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Total Appointments: ${totalAppointments}`, 20, 80);
+    doc.text(`Total Revenue: $${totalRevenue.toLocaleString()}`, 20, 90);
+    doc.text(`Total Doctors: ${totalDoctors}`, 20, 100);
+    doc.text(`Total Patients: ${totalPatients}`, 20, 110);
+    
+    // Appointments by Status
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Appointments by Status', 20, 130);
+    
+    const statusTableData = statusData.map(item => [item.name, item.value.toString()]);
+    
+    (doc as any).autoTable({
+      startY: 140,
+      head: [['Status', 'Count']],
+      body: statusTableData,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      styles: { fontSize: 10 }
+    });
+    
+    // Revenue by Department
+    const deptRevenue = departments.map(dept => {
+      const deptInvoices = invoices.filter(inv => 
+        appointments.find(apt => apt.id === inv.appointmentId)?.departmentId === dept.id
+      );
+      const revenue = deptInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+      return [dept.name, `$${revenue.toLocaleString()}`];
+    });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Revenue by Department', 20, (doc as any).lastAutoTable.finalY + 20);
+    
+    (doc as any).autoTable({
+      startY: (doc as any).lastAutoTable.finalY + 30,
+      head: [['Department', 'Revenue']],
+      body: deptRevenue,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
+      styles: { fontSize: 10 }
+    });
+    
+    // Save the PDF
+    doc.save('medicare-analytics-report.pdf');
+  };
 
   // Prepare data for Appointments by Status chart
   const statusCounts = appointments.reduce((acc, apt) => {
@@ -76,7 +150,10 @@ export default function AdminReports() {
             <Calendar className="h-4 w-4 mr-2" />
             Last 30 Days
           </button>
-          <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors">
+          <button 
+            onClick={handleExportReport}
+            className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </button>
@@ -105,7 +182,7 @@ export default function AdminReports() {
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
                 <YAxis tickFormatter={(value) => `$${value / 1000}k`} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} />
                 <Tooltip 
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                  formatter={(value: any) => value ? [`$${Number(value).toLocaleString()}`, 'Revenue'] : ['N/A', 'Revenue']}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
                 />
                 <Area type="monotone" dataKey="revenue" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
@@ -129,7 +206,7 @@ export default function AdminReports() {
                 <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dx={-10} />
                 <Tooltip 
-                  formatter={(value: number) => [value, 'New Patients']}
+                  formatter={(value: any) => value ? [Number(value), 'New Patients'] : ['N/A', 'New Patients']}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
                 />
                 <Line type="monotone" dataKey="patients" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
@@ -157,7 +234,7 @@ export default function AdminReports() {
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`}
                   labelLine={false}
                 >
                   {statusData.map((entry, index) => (
@@ -192,7 +269,7 @@ export default function AdminReports() {
                 <XAxis type="number" tickFormatter={(value) => `$${value / 1000}k`} axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} />
                 <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} width={100} />
                 <Tooltip 
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Revenue']}
+                  formatter={(value: any) => value ? [`$${Number(value).toLocaleString()}`, 'Revenue'] : ['N/A', 'Revenue']}
                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
                   cursor={{ fill: '#f1f5f9' }}
                 />

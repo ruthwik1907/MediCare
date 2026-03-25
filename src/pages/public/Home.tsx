@@ -4,12 +4,12 @@ import { ArrowRight, Activity, Users, Calendar, Shield, Heart, Award, Clock, Pho
 
 export default function Home() {
   const scrollingImages = [
-    "https://picsum.photos/seed/facility1/800/600",
-    "https://picsum.photos/seed/facility2/800/600",
-    "https://picsum.photos/seed/facility3/800/600",
-    "https://picsum.photos/seed/facility4/800/600",
-    "https://picsum.photos/seed/facility5/800/600",
-    "https://picsum.photos/seed/facility6/800/600",
+    "/images/hospital-1.jpg",
+    "/images/hospital-2.jpg",
+    "/images/hospital-3.jpg",
+    "/images/hospital-4.jpg",
+    "/images/hospital-5.jpg",
+    "/images/hospital-6.jpg",
   ];
 
   return (
@@ -54,10 +54,10 @@ export default function Home() {
           <div className="w-full lg:w-6/12 relative">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 sm:border-8 border-white">
               <img 
-                src="https://picsum.photos/seed/hero-hospital/1200/800" 
+                src="/images/hospital-hero.jpg" 
                 alt="Modern Hospital Facility" 
                 className="w-full h-[300px] sm:h-[400px] lg:h-[500px] object-cover"
-                referrerPolicy="no-referrer"
+                onError={(event) => { (event.target as HTMLImageElement).src = 'https://source.unsplash.com/featured/1200x800/?hospital,clinic,doctor'; }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
               
